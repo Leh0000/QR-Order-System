@@ -10,8 +10,12 @@ export function useProducts() {
 
   useEffect(() => {
     fetch('/api/products')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(({ data }) => {
+        if (!Array.isArray(data)) throw new Error('Invalid menu data');
         setProducts(data);
         const seen = new Set();
         const cats = [];
@@ -32,9 +36,5 @@ export function useProducts() {
       .finally(() => setLoading(false));
   }, []);
 
-  function getByCategory(cat) {
-    return products.filter((p) => p.category === cat);
-  }
-
-  return { products, categories, loading, error, getByCategory };
+  return { products, categories, loading, error };
 }

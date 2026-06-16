@@ -32,7 +32,7 @@ function downloadQR(tableNumber) {
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
 }
 
-function downloadAll(count, baseUrl) {
+function downloadAll(count) {
   for (let i = 1; i <= count; i++) {
     setTimeout(() => downloadQR(i), (i - 1) * 300);
   }
@@ -71,7 +71,7 @@ export default function QRGeneratorPage() {
               />
             </div>
             <button
-              onClick={() => downloadAll(tableCount, baseUrl)}
+              onClick={() => downloadAll(tableCount)}
               className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold bg-accent text-white ml-auto"
             >
               <Download size={16} />

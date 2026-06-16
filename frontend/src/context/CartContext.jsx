@@ -5,7 +5,7 @@ const CartContext = createContext(null);
 export function CartProvider({ children }) {
   const [cart, setCart] = useState({});
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentMethod, setPaymentMethod] = useState('gcash');
 
   function updateQty(productId, qty) {
     setCart((prev) => {
@@ -32,7 +32,7 @@ export function CartProvider({ children }) {
   function clearCart() {
     setCart({});
     setNotes('');
-    setPaymentMethod('cash');
+    setPaymentMethod('gcash');
   }
 
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);

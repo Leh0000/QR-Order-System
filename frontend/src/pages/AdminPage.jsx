@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { RefreshCw, QrCode, Trash2 } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 
-const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
 const ORDER_STATUSES = ['received', 'preparing', 'ready', 'completed', 'cancelled'];
 
 const PAYMENT_COLORS = {
@@ -60,20 +59,20 @@ export default function AdminPage() {
   const [updating, setUpdating] = useState({});
   const [deleting, setDeleting] = useState({});
 
-  async function handleStatusChange(orderId, field, value) {
-    setUpdating((prev) => ({ ...prev, [`${orderId}-${field}`]: true }));
+  async function handleOrderStatusChange(orderId, value) {
+    setUpdating((prev) => ({ ...prev, [`${orderId}-order_status`]: true }));
     try {
-      await updateOrder(orderId, { [field]: value });
+      await updateOrder(orderId, { order_status: value });
     } catch (e) {
       alert('Update failed: ' + e.message);
     } finally {
-      setUpdating((prev) => ({ ...prev, [`${orderId}-${field}`]: false }));
+      setUpdating((prev) => ({ ...prev, [`${orderId}-order_status`]: false }));
     }
   }
 
   async function handleDelete(order) {
     const confirmed = window.confirm(
-      `Delete order #${order.id} (Table ${order.table_number}, ₱${parseFloat(order.total).toFixed(0)})? This cannot be undone.`
+      `Delete order #${order.order_number} (Table ${order.table_number}, ₱${parseFloat(order.total).toFixed(0)})? This cannot be undone.`
     );
     if (!confirmed) return;
 
@@ -158,7 +157,7 @@ export default function AdminPage() {
                   <tbody className="divide-y divide-line">
                     {orders.map((order) => (
                       <tr key={order.id} className="hover:bg-bg-soft/60 transition-colors">
-                        <td className="px-4 py-3 font-semibold text-ink">#{order.id}</td>
+                        <td className="px-4 py-3 font-semibold text-ink">#{order.order_number}</td>
                         <td className="px-4 py-3 text-ink">Table {order.table_number}</td>
                         <td className="px-4 py-3 text-ink-soft max-w-[200px]">
                           <details className="cursor-pointer">
@@ -178,22 +177,13 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-right text-ink-soft">₱{parseFloat(order.tax).toFixed(0)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-accent">₱{parseFloat(order.total).toFixed(0)}</td>
                         <td className="px-4 py-3">
-                          <select
-                            value={order.payment_status}
-                            disabled={updating[`${order.id}-payment_status`]}
-                            onChange={(e) => handleStatusChange(order.id, 'payment_status', e.target.value)}
-                            className={`rounded-lg px-2 py-1 text-xs font-semibold border-0 outline-none cursor-pointer ${PAYMENT_COLORS[order.payment_status] || 'bg-gray-100 text-gray-500'}`}
-                          >
-                            {PAYMENT_STATUSES.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
+                          <StatusBadge value={order.payment_status} colorMap={PAYMENT_COLORS} />
                         </td>
                         <td className="px-4 py-3">
                           <select
                             value={order.order_status}
                             disabled={updating[`${order.id}-order_status`]}
-                            onChange={(e) => handleStatusChange(order.id, 'order_status', e.target.value)}
+                            onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
                             className={`rounded-lg px-2 py-1 text-xs font-semibold border-0 outline-none cursor-pointer ${ORDER_COLORS[order.order_status] || 'bg-gray-100 text-gray-500'}`}
                           >
                             {ORDER_STATUSES.map((s) => (

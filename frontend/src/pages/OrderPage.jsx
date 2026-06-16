@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MapPin, ArrowLeft, Plus, Minus, ShoppingBag, Check, Banknote, Smartphone, CreditCard } from 'lucide-react';
+import { MapPin, ArrowLeft, Plus, Minus, ShoppingBag, Check, Smartphone, CreditCard } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
 import { useProducts } from '../hooks/useProducts';
@@ -59,7 +59,12 @@ export default function OrderPage() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table_number: parseInt(tableNumber), items, payment_method: paymentMethod, notes }),
+        body: JSON.stringify({
+          table_number: parseInt(tableNumber),
+          items,
+          payment_method: paymentMethod,
+          notes,
+        }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Order failed');
@@ -182,7 +187,6 @@ export default function OrderPage() {
 
   // ---- CHECKOUT SCREEN ----
   const paymentOptions = [
-    { id: 'cash', label: 'Cash', Icon: Banknote },
     { id: 'gcash', label: 'GCash', Icon: Smartphone },
     { id: 'card', label: 'Card', Icon: CreditCard },
   ];
@@ -264,7 +268,7 @@ export default function OrderPage() {
       </div>
       <h2 className="font-serif font-semibold text-[22px] text-ink">Order placed!</h2>
       <p className="text-sm mt-1 mb-6 text-ink-soft">
-        Order #{confirmedOrder?.order_id} has been sent to the kitchen for Table {tableNumber}.
+        Order #{confirmedOrder?.order_number} has been sent to the kitchen for Table {tableNumber}.
       </p>
 
       <div className="w-full mb-6">

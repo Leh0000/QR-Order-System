@@ -6,7 +6,6 @@ const { asyncHandler } = require('../middleware/errorHandler');
 
 const TAX_RATE = parseFloat(process.env.TAX_RATE || '0.12');
 
-const VALID_PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
 const VALID_ORDER_STATUSES = ['received', 'preparing', 'ready', 'completed', 'cancelled'];
 
 function handleValidation(req, res, next) {
@@ -15,6 +14,16 @@ function handleValidation(req, res, next) {
     return res.status(422).json({ errors: errors.array() });
   }
   next();
+}
+
+function withOrderNumbers(orders) {
+  const sorted = [...orders].sort((a, b) => {
+    const timeDiff = new Date(a.created_at) - new Date(b.created_at);
+    if (timeDiff !== 0) return timeDiff;
+    return a.id - b.id;
+  });
+  const numberById = new Map(sorted.map((o, i) => [o.id, i + 1]));
+  return orders.map((o) => ({ ...o, order_number: numberById.get(o.id) }));
 }
 
 // GET /api/orders — list all orders with items
@@ -57,10 +66,12 @@ router.get(
       itemsByOrder[item.order_id].push(item);
     }
 
-    const result = orders.map((o) => ({
-      ...o,
-      items: itemsByOrder[o.id] || [],
-    }));
+    const result = withOrderNumbers(
+      orders.map((o) => ({
+        ...o,
+        items: itemsByOrder[o.id] || [],
+      }))
+    );
 
     res.json({ data: result });
   })
@@ -84,13 +95,13 @@ router.post(
       .withMessage('Each item quantity must be at least 1'),
     body('payment_method')
       .optional()
-      .isIn(['cash', 'gcash', 'card'])
-      .withMessage('payment_method must be cash, gcash, or card'),
+      .isIn(['gcash', 'card'])
+      .withMessage('payment_method must be gcash or card'),
     body('notes').optional().isString().trim().isLength({ max: 500 }),
   ],
   handleValidation,
   asyncHandler(async (req, res) => {
-    const { table_number, items, payment_method = 'cash', notes = '' } = req.body;
+    const { table_number, items, payment_method = 'gcash', notes = '' } = req.body;
 
     const productIds = items.map((i) => i.product_id);
     const placeholders = productIds.map(() => '?').join(', ');
@@ -134,7 +145,7 @@ router.post(
 
       const [orderResult] = await conn.execute(
         `INSERT INTO orders (table_number, subtotal, tax, total, payment_status, order_status, notes)
-         VALUES (?, ?, ?, ?, 'pending', 'received', ?)`,
+         VALUES (?, ?, ?, ?, 'paid', 'received', ?)`,
         [table_number, subtotal, tax, total, notes]
       );
       const orderId = orderResult.insertId;
@@ -149,14 +160,19 @@ router.post(
 
       await conn.commit();
 
+      const [[{ order_number }]] = await conn.execute(
+        'SELECT COUNT(*) AS order_number FROM orders'
+      );
+
       res.status(201).json({
         data: {
-          order_id: orderId,
+          order_number,
           table_number,
           subtotal,
           tax,
           total,
           payment_method,
+          payment_status: 'paid',
           order_status: 'received',
         },
       });
@@ -169,33 +185,22 @@ router.post(
   })
 );
 
-// PATCH /api/orders/:id — update payment_status or order_status
+// PATCH /api/orders/:id — update order_status only (payment is set at checkout)
 router.patch(
   '/:id',
   [
     param('id').isInt({ min: 1 }).withMessage('Invalid order id'),
-    body('payment_status')
-      .optional()
-      .isIn(VALID_PAYMENT_STATUSES)
-      .withMessage(`payment_status must be one of: ${VALID_PAYMENT_STATUSES.join(', ')}`),
     body('order_status')
-      .optional()
       .isIn(VALID_ORDER_STATUSES)
       .withMessage(`order_status must be one of: ${VALID_ORDER_STATUSES.join(', ')}`),
   ],
   handleValidation,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { payment_status, order_status } = req.body;
+    const { order_status } = req.body;
 
-    if (!payment_status && !order_status) {
-      return res.status(422).json({ error: 'Provide payment_status or order_status to update' });
-    }
-
-    const fields = [];
-    const values = [];
-    if (payment_status) { fields.push('payment_status = ?'); values.push(payment_status); }
-    if (order_status) { fields.push('order_status = ?'); values.push(order_status); }
+    const fields = ['order_status = ?'];
+    const values = [order_status];
     values.push(id);
 
     const [result] = await pool.execute(

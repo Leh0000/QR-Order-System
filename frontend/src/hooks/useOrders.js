@@ -41,7 +41,7 @@ export function useOrders(refreshInterval = 15000) {
     const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Delete failed');
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+    await fetchOrders();
     return body.data;
   }
 

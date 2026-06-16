@@ -17,23 +17,37 @@ A mini restaurant QR ordering system. Customers scan a table QR code, browse the
 mysql -u root -p < backend/db/schema.sql
 ```
 
-### 2. Backend
+### 2. Install dependencies
 
 ```bash
-cd backend
-cp .env.example .env
-# Edit .env with your MySQL credentials
-npm install
-npm run seed       # Seed sample menu items
-npm run dev        # Start API on http://localhost:4000
+npm install          # installs root + backend + frontend
 ```
 
-### 3. Frontend
+Or, if you prefer to install each package separately:
 
 ```bash
-cd frontend
-npm install
-npm run dev        # Start on http://localhost:5173
+npm run install:all
+```
+
+### 3. Backend env
+
+```bash
+cp backend/.env.example backend/.env
+# Edit backend/.env with your MySQL credentials
+npm run seed         # Seed sample menu items
+```
+
+### 4. Run the app
+
+```bash
+npm run dev          # Starts API (http://localhost:4000) + frontend (http://localhost:5173)
+```
+
+To run only one side:
+
+```bash
+npm run dev:backend
+npm run dev:frontend
 ```
 
 ## Routes
@@ -51,7 +65,7 @@ npm run dev        # Start on http://localhost:5173
 | GET | `/api/products` | List available menu items |
 | GET | `/api/orders` | List all orders with items |
 | POST | `/api/orders` | Create a new order |
-| PATCH | `/api/orders/:id` | Update order/payment status |
+| PATCH | `/api/orders/:id` | Update order status |
 
 ## Environment Variables (backend/.env)
 
