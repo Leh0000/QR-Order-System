@@ -1,0 +1,22 @@
+{
+  "name": "qr-order-system-backend",
+  "version": "1.0.0",
+  "description": "Mini QR Ordering System - Express + MySQL API",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "seed": "node db/seed.js",
+    "migrate": "node db/migrate.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-validator": "^7.2.0",
+    "mysql2": "^3.10.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
