@@ -215,4 +215,22 @@ router.patch(
   })
 );
 
+// DELETE /api/orders/:id — permanently remove an order and its items
+router.delete(
+  '/:id',
+  [param('id').isInt({ min: 1 }).withMessage('Invalid order id')],
+  handleValidation,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const [result] = await pool.execute('DELETE FROM orders WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json({ data: { id: Number(id), deleted: true } });
+  })
+);
+
 module.exports = router;

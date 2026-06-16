@@ -37,5 +37,13 @@ export function useOrders(refreshInterval = 15000) {
     return body.data;
   }
 
-  return { orders, loading, error, refetch: fetchOrders, updateOrder };
+  async function deleteOrder(id) {
+    const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Delete failed');
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+    return body.data;
+  }
+
+  return { orders, loading, error, refetch: fetchOrders, updateOrder, deleteOrder };
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, QrCode } from 'lucide-react';
+import { RefreshCw, QrCode, Trash2 } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
@@ -56,8 +56,9 @@ function StatsBar({ orders }) {
 }
 
 export default function AdminPage() {
-  const { orders, loading, error, refetch, updateOrder } = useOrders(15000);
+  const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders(15000);
   const [updating, setUpdating] = useState({});
+  const [deleting, setDeleting] = useState({});
 
   async function handleStatusChange(orderId, field, value) {
     setUpdating((prev) => ({ ...prev, [`${orderId}-${field}`]: true }));
@@ -67,6 +68,22 @@ export default function AdminPage() {
       alert('Update failed: ' + e.message);
     } finally {
       setUpdating((prev) => ({ ...prev, [`${orderId}-${field}`]: false }));
+    }
+  }
+
+  async function handleDelete(order) {
+    const confirmed = window.confirm(
+      `Delete order #${order.id} (Table ${order.table_number}, ₱${parseFloat(order.total).toFixed(0)})? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting((prev) => ({ ...prev, [order.id]: true }));
+    try {
+      await deleteOrder(order.id);
+    } catch (e) {
+      alert('Delete failed: ' + e.message);
+    } finally {
+      setDeleting((prev) => ({ ...prev, [order.id]: false }));
     }
   }
 
@@ -135,6 +152,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-left">Payment</th>
                       <th className="px-4 py-3 text-left">Status</th>
                       <th className="px-4 py-3 text-left">Time</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -184,6 +202,17 @@ export default function AdminPage() {
                           </select>
                         </td>
                         <td className="px-4 py-3 text-xs text-ink-soft whitespace-nowrap">{formatTime(order.created_at)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(order)}
+                            disabled={deleting[order.id]}
+                            title="Delete order"
+                            className="inline-flex items-center justify-center rounded-lg p-2 text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
