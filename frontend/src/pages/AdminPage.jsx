@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { RefreshCw, QrCode, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Download, RefreshCw, QrCode, Trash2 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { jsPDF } from 'jspdf';
 import { useOrders } from '../hooks/useOrders';
 
 const ORDER_STATUSES = ['received', 'preparing', 'ready', 'completed', 'cancelled'];
@@ -54,10 +57,100 @@ function StatsBar({ orders }) {
   );
 }
 
+function downloadQR(tableNumber) {
+  const svg = document.getElementById(`qr-table-${tableNumber}`);
+  if (!svg) return;
+
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const canvas = document.createElement('canvas');
+  const size = 300;
+  canvas.width = size;
+  canvas.height = size + 40;
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, size, size);
+    ctx.fillStyle = '#1D1B18';
+    ctx.font = 'bold 16px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Table ${tableNumber}`, size / 2, size + 28);
+
+    const link = document.createElement('a');
+    link.download = `table-${tableNumber}-qr.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+}
+
+function downloadAll(count) {
+  const toImageDataUrl = (tableNumber) => new Promise((resolve, reject) => {
+    const svg = document.getElementById(`qr-table-${tableNumber}`);
+    if (!svg) {
+      reject(new Error(`QR for table ${tableNumber} not found.`));
+      return;
+    }
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 900;
+      canvas.height = 900;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error(`Failed to render QR for table ${tableNumber}.`));
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  });
+
+  (async () => {
+    try {
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const qrSize = 320;
+      const qrX = (pageWidth - qrSize) / 2;
+      const qrY = 170;
+
+      for (let i = 1; i <= count; i += 1) {
+        if (i > 1) {
+          pdf.addPage();
+        }
+
+        const imageDataUrl = await toImageDataUrl(i);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(26);
+        pdf.text(`Table ${i}`, pageWidth / 2, 90, { align: 'center' });
+
+        pdf.addImage(imageDataUrl, 'PNG', qrX, qrY, qrSize, qrSize, undefined, 'FAST');
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(12);
+        pdf.text(`${window.location.origin}/order?table=${i}`, pageWidth / 2, qrY + qrSize + 34, { align: 'center' });
+      }
+
+      pdf.save(`table-qrs-1-to-${count}.pdf`);
+    } catch (err) {
+      alert('Failed to create PDF: ' + err.message);
+    }
+  })();
+}
+
 export default function AdminPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders(15000);
   const [updating, setUpdating] = useState({});
   const [deleting, setDeleting] = useState({});
+  const [tableCount, setTableCount] = useState(10);
+  const qrOpen = searchParams.get('tab') === 'qr';
+  const baseUrl = `${window.location.origin}/order`;
+  const tables = Array.from({ length: tableCount }, (_, i) => i + 1);
 
   async function handleOrderStatusChange(orderId, value) {
     setUpdating((prev) => ({ ...prev, [`${orderId}-order_status`]: true }));
@@ -93,6 +186,16 @@ export default function AdminPage() {
     });
   }
 
+  function toggleQrPanel() {
+    const next = new URLSearchParams(searchParams);
+    if (qrOpen) {
+      next.delete('tab');
+    } else {
+      next.set('tab', 'qr');
+    }
+    setSearchParams(next, { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-bg-soft">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -110,18 +213,98 @@ export default function AdminPage() {
               <RefreshCw size={15} />
               Refresh
             </button>
-            <a
-              href="/qr-generator"
+            <button
+              type="button"
+              onClick={toggleQrPanel}
               className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold bg-accent text-white"
             >
               <QrCode size={15} />
-              QR Codes
-            </a>
+              {qrOpen ? 'Hide QR Codes' : 'QR Codes'}
+            </button>
           </div>
         </div>
 
         {/* Stats */}
         {!loading && !error && <StatsBar orders={orders} />}
+
+        {qrOpen && (
+          <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-line">
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+              <div>
+                <h2 className="font-semibold text-ink">QR Codes</h2>
+                <p className="text-xs text-ink-soft mt-0.5">
+                  Generate and download QR codes for each table.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => downloadAll(tableCount)}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold bg-accent text-white"
+              >
+                <Download size={16} />
+                Download PDF ({tableCount})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <span className="text-sm font-medium text-ink">Tables: {tableCount}</span>
+              <button
+                type="button"
+                onClick={() => setTableCount((prev) => Math.max(1, prev - 1))}
+                disabled={tableCount <= 1}
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Remove Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setTableCount((prev) => Math.min(50, prev + 1))}
+                disabled={tableCount >= 50}
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Add Table
+              </button>
+            </div>
+
+            <p className="text-xs text-ink-soft mb-5">
+              QR codes link to: <code className="bg-bg-soft px-1.5 py-0.5 rounded text-accent">{baseUrl}?table=N</code>
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {tables.map((n) => (
+                <div key={n} className="bg-bg rounded-2xl p-4 flex flex-col items-center gap-3 shadow-sm border border-line">
+                  <p className="text-sm font-semibold text-ink">Table {n}</p>
+                  <div className="p-2 bg-white rounded-xl">
+                    <QRCodeSVG
+                      id={`qr-table-${n}`}
+                      value={`${baseUrl}?table=${n}`}
+                      size={120}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <a
+                    href={`${baseUrl}?table=${n}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full rounded-lg border border-line px-2 py-1.5 text-xs font-medium text-center text-accent hover:bg-bg-soft transition-colors break-all"
+                  >
+                    Open Table {n} Link
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => downloadQR(n)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                  >
+                    <Download size={13} />
+                    Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Loading / Error */}
         {loading && <div className="text-center py-12 text-ink-soft">Loading orders…</div>}
