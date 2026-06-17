@@ -1,5 +1,5 @@
 import { Plus, Minus } from 'lucide-react';
-import CategoryIcon from './CategoryIcon';
+import ProductImage from './ProductImage';
 import { useCart } from '../context/CartContext';
 
 export default function MenuItemRow({ item, onOpen }) {
@@ -11,9 +11,7 @@ export default function MenuItemRow({ item, onOpen }) {
       onClick={() => onOpen(item)}
       className="flex items-center gap-3 py-3 cursor-pointer border-b border-line"
     >
-      <div className="flex items-center justify-center rounded-full flex-shrink-0 w-[46px] h-[46px] bg-accent-soft">
-        <CategoryIcon category={item.category} size={20} className="text-accent" />
-      </div>
+      <ProductImage item={item} size="sm" />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
