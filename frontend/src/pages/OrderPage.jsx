@@ -302,8 +302,8 @@ export default function OrderPage() {
   );
 
   return (
-    <div className="w-full flex items-center justify-center p-4 min-h-screen bg-bg-soft">
-      <div className="relative flex flex-col w-full overflow-hidden bg-bg" style={{ maxWidth: 400, height: 740, borderRadius: 28, boxShadow: '0 24px 60px -24px rgba(0,0,0,0.25)' }}>
+    <div className="w-full min-h-screen bg-bg-soft md:p-4">
+      <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-bg md:mx-auto md:min-h-0 md:h-[calc(100vh-2rem)] md:max-h-[960px] md:max-w-5xl md:rounded-[28px] md:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.25)]">
         {screen === 'menu' && renderMenu()}
         {screen === 'cart' && renderCart()}
         {screen === 'checkout' && renderCheckout()}
