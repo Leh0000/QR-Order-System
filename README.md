@@ -4,9 +4,52 @@ A mini restaurant QR ordering system for **Q Sina**. Customers scan a table QR c
 
 ## Stack
 
-- **Frontend:** React 18 + Vite + Tailwind CSS + React Router
-- **Backend:** Node.js + Express + mysql2
+- **Frontend:** React 18 + Vite + Tailwind CSS + React Router + Lucide icons
+- **Backend:** Node.js + Express + mysql2 + express-validator
 - **Database:** MySQL 8
+
+## Project structure
+
+Monorepo with a root `package.json` that orchestrates the backend and frontend workspaces. There is no separate top-level `api/` or `scripts/` folder — the REST API lives under `backend/src/`.
+
+```
+QR-Order-System/
+├── package.json              # Root scripts (dev, seed, build)
+├── backend/
+│   ├── .env.example
+│   ├── db/
+│   │   ├── schema.sql        # Full database schema (source of truth)
+│   │   └── seed.js           # Sample Q Sina menu data
+│   └── src/
+│       ├── app.js            # Express entry point
+│       ├── config/db.js      # MySQL connection pool
+│       ├── orderEvents.js    # SSE broadcast helpers
+│       ├── middleware/       # Error handler, rate limiting
+│       └── routes/           # products.js, orders.js
+└── frontend/
+    ├── index.html
+    ├── vite.config.js        # Dev server + /api proxy to :4000
+    └── src/
+        ├── main.jsx            # React Router routes
+        ├── context/            # Cart state
+        ├── hooks/              # useProducts, useOrders, useTableOrders
+        ├── components/         # Menu, cart, payment UI
+        └── pages/              # OrderPage.jsx, AdminPage.jsx
+```
+
+## Scripts
+
+Run these from the project root unless noted:
+
+| Command | Description |
+|---------|-------------|
+| `npm install` | Install root, backend, and frontend dependencies |
+| `npm run dev` | Start backend (`:4000`) and frontend (`:5173`) together |
+| `npm run dev:backend` | Backend only (nodemon) |
+| `npm run dev:frontend` | Frontend only (Vite) |
+| `npm run seed` | Reset and seed sample menu data |
+| `npm run build` | Production build → `frontend/dist` |
+| `npm run start --prefix backend` | Run backend in production mode |
 
 ## Setup
 
@@ -53,7 +96,7 @@ npm run install:all
 
 ### 3. Create the database
 
-Make sure the MySQL server is running, then apply the schema. It creates the `mini_qr_ordering_system` database and all tables (`products`, `orders`, `order_items`).
+Make sure the MySQL server is running, then apply the schema. It creates the `mini_qr_ordering_system` database and all tables (`products`, `orders`, `order_items`). The `backend/db/` folder contains only `schema.sql` and `seed.js` — there are no incremental migration scripts; re-run `schema.sql` to reset the schema.
 
 **macOS / Linux / Git Bash:**
 
@@ -184,6 +227,7 @@ npm run start --prefix backend
 |---------|--------------|-----|
 | `ECONNREFUSED` or seed/API DB errors | MySQL not running or wrong credentials | Start MySQL; verify `backend/.env` matches your server |
 | `Unknown database` | Schema not applied | Re-run step 3 (`schema.sql`) |
+| Need a clean database | Old schema or test data | Drop/recreate the database, re-run `schema.sql`, then `npm run seed` |
 | Frontend loads but menu is empty / API errors | Backend not running | Run `npm run dev:backend` or full `npm run dev` |
 | `Port 4000 already in use` | Another process on that port | Change `PORT` in `backend/.env` and update the Vite proxy target in `frontend/vite.config.js` |
 | `Port 5173 already in use` | Another Vite app running | Stop the other process or change the port in `frontend/vite.config.js` |
@@ -229,7 +273,7 @@ Orders are created with `payment_status: paid` and `order_status: received`. Vis
 
    Orders can also be set to `cancelled`. Status changes push instantly to customer **My orders** screens.
 6. Delete orders permanently when needed (with confirmation).
-7. Open the **QR Codes** panel to generate and download table QR codes.
+7. Open the **QR Codes** panel to set table count, preview codes, and download PNG or bulk PDF exports.
 
 Payment status is set at checkout and is read-only in the admin UI.
 
@@ -264,9 +308,9 @@ flowchart LR
 |--------|----------|-------------|
 | GET | `/api/health` | Health check — returns `{ "status": "ok" }` |
 | GET | `/api/products` | List available menu items with `units_sold` (from non-cancelled orders) |
-| GET | `/api/orders` | List orders with line items. Optional query: `?status=received`, `?table_number=N` |
+| GET | `/api/orders` | List orders with line items and a display `order_number` (chronological). Optional query: `?status=received`, `?table_number=N` |
 | GET | `/api/orders/events` | SSE stream — emits `orders_changed` when orders are created, updated, or deleted |
-| POST | `/api/orders` | Create order after payment. Body: `table_number`, `items[]`, optional `payment_method` (`gcash` \| `card`), optional `notes`. Rate-limited to 5 requests per table per 5 minutes |
+| POST | `/api/orders` | Create order after payment. Body: `table_number`, `items[]`, optional `payment_method` (`gcash` \| `card`), optional `notes` (max 500 chars). Returns `order_number`. Rate-limited to 5 requests per table per 5 minutes |
 | PATCH | `/api/orders/:id` | Update `order_status` only |
 | DELETE | `/api/orders/:id` | Permanently delete an order and its items |
 
