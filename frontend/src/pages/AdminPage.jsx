@@ -7,6 +7,37 @@ import { useOrders } from '../hooks/useOrders';
 
 const ORDER_STATUSES = ['received', 'preparing', 'ready', 'completed', 'cancelled'];
 
+const STATS_PERIODS = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This week' },
+  { key: 'month', label: 'This month' },
+  { key: 'all', label: 'All time' },
+];
+
+function getPeriodStart(period) {
+  const now = new Date();
+  if (period === 'today') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if (period === 'week') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = start.getDay();
+    const daysFromMonday = day === 0 ? 6 : day - 1;
+    start.setDate(start.getDate() - daysFromMonday);
+    return start;
+  }
+  if (period === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return null;
+}
+
+function filterOrdersByPeriod(orders, period) {
+  const start = getPeriodStart(period);
+  if (!start) return orders;
+  return orders.filter((o) => new Date(o.created_at) >= start);
+}
+
 const PAYMENT_COLORS = {
   pending: 'bg-yellow-100 text-yellow-700',
   paid: 'bg-green-100 text-green-700',
@@ -30,29 +61,49 @@ function StatusBadge({ value, colorMap }) {
 }
 
 function StatsBar({ orders }) {
-  const today = new Date().toDateString();
-  const todayOrders = orders.filter((o) => new Date(o.created_at).toDateString() === today);
-  const pending = orders.filter((o) => o.order_status !== 'completed' && o.order_status !== 'cancelled').length;
-  const completed = orders.filter((o) => o.order_status === 'completed').length;
-  const revenue = orders
+  const [period, setPeriod] = useState('today');
+
+  const periodOrders = filterOrdersByPeriod(orders, period);
+  const active = orders.filter((o) => o.order_status !== 'completed' && o.order_status !== 'cancelled').length;
+  const completed = periodOrders.filter((o) => o.order_status === 'completed').length;
+  const revenue = periodOrders
     .filter((o) => o.payment_status === 'paid')
     .reduce((sum, o) => sum + parseFloat(o.total), 0);
 
   const stats = [
-    { label: "Today's orders", value: todayOrders.length },
-    { label: 'Active', value: pending },
+    { label: 'Orders', value: periodOrders.length },
+    { label: 'Active now', value: active },
     { label: 'Completed', value: completed },
     { label: 'Revenue (paid)', value: `₱${revenue.toFixed(0)}` },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {stats.map(({ label, value }) => (
-        <div key={label} className="bg-white rounded-2xl p-4 border border-line">
-          <p className="text-xs text-ink-soft mb-1">{label}</p>
-          <p className="text-2xl font-bold text-ink">{value}</p>
-        </div>
-      ))}
+    <div className="mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {STATS_PERIODS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setPeriod(key)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${
+              period === key
+                ? 'bg-accent text-white border-accent'
+                : 'bg-white text-ink-soft border-line hover:bg-bg-soft'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map(({ label, value }) => (
+          <div key={label} className="bg-white rounded-2xl p-4 border border-line">
+            <p className="text-xs text-ink-soft mb-1">{label}</p>
+            <p className="text-2xl font-bold text-ink">{value}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
