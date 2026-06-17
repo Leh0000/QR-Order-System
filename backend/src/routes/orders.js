@@ -3,6 +3,14 @@ const router = express.Router();
 const { body, param, query, validationResult } = require('express-validator');
 const pool = require('../config/db');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { rateLimit } = require('../middleware/rateLimit');
+const { addClient, removeClient, notifyOrdersChanged } = require('../orderEvents');
+
+const postOrderLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  keyFn: (req) => `table:${req.body?.table_number ?? req.ip}`,
+});
 
 const TAX_RATE = parseFloat(process.env.TAX_RATE || '0.12');
 
@@ -77,9 +85,25 @@ router.get(
   })
 );
 
+// GET /api/orders/events — SSE stream for admin order updates
+router.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  addClient(res);
+  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+
+  req.on('close', () => {
+    removeClient(res);
+  });
+});
+
 // POST /api/orders — create a new order
 router.post(
   '/',
+  postOrderLimiter,
   [
     body('table_number')
       .isInt({ min: 1, max: 99 })
@@ -164,6 +188,8 @@ router.post(
         'SELECT COUNT(*) AS order_number FROM orders'
       );
 
+      notifyOrdersChanged('created');
+
       res.status(201).json({
         data: {
           order_number,
@@ -216,6 +242,7 @@ router.patch(
       'SELECT id, table_number, payment_status, order_status, updated_at FROM orders WHERE id = ?',
       [id]
     );
+    notifyOrdersChanged('updated');
     res.json({ data: rows[0] });
   })
 );
@@ -234,6 +261,7 @@ router.delete(
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    notifyOrdersChanged('deleted');
     res.json({ data: { id: Number(id), deleted: true } });
   })
 );
