@@ -37,10 +37,13 @@ function withOrderNumbers(orders) {
 // GET /api/orders — list all orders with items
 router.get(
   '/',
-  [query('status').optional().isIn(VALID_ORDER_STATUSES)],
+  [
+    query('status').optional().isIn(VALID_ORDER_STATUSES),
+    query('table_number').optional().isInt({ min: 1, max: 99 }),
+  ],
   handleValidation,
   asyncHandler(async (req, res) => {
-    const { status } = req.query;
+    const { status, table_number } = req.query;
 
     let ordersQuery = `
       SELECT id, table_number, subtotal, tax, total,
@@ -48,9 +51,17 @@ router.get(
       FROM orders
     `;
     const params = [];
+    const conditions = [];
     if (status) {
-      ordersQuery += ' WHERE order_status = ?';
+      conditions.push('order_status = ?');
       params.push(status);
+    }
+    if (table_number) {
+      conditions.push('table_number = ?');
+      params.push(table_number);
+    }
+    if (conditions.length > 0) {
+      ordersQuery += ` WHERE ${conditions.join(' AND ')}`;
     }
     ordersQuery += ' ORDER BY created_at DESC';
 
@@ -192,6 +203,7 @@ router.post(
 
       res.status(201).json({
         data: {
+          id: orderId,
           order_number,
           table_number,
           subtotal,
