@@ -8,6 +8,7 @@ import { useTableOrders } from '../hooks/useTableOrders';
 import MenuHeader from '../components/MenuHeader';
 import CategoryTabs from '../components/CategoryTabs';
 import MenuItemRow from '../components/MenuItemRow';
+import BestsellerSection from '../components/BestsellerSection';
 import ItemDetailModal from '../components/ItemDetailModal';
 import FloatingCartButton from '../components/FloatingCartButton';
 import PaymentSimulator from '../components/PaymentSimulator';
@@ -93,7 +94,7 @@ function OrderStatusBadge({ status }) {
 export default function OrderPage() {
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
-  const { products, categories, loading, error } = useProducts();
+  const { products, bestsellers, categories, loading, error } = useProducts();
   const { orders: tableOrders, loading: ordersLoading, refetch: refetchTableOrders } = useTableOrders(tableNumber);
   const { cart, cartCount, notes, setNotes, paymentMethod, setPaymentMethod, updateQty, clearCart } = useCart();
   const [screen, setScreen] = useState('menu'); // menu | cart | checkout | confirmation | my-orders
@@ -182,6 +183,7 @@ export default function OrderPage() {
       )}
       {!loading && !error && (
         <>
+          <BestsellerSection items={bestsellers} onOpen={setActiveItem} />
           <CategoryTabs
             categories={categories}
             activeCategory={activeCategory || categories[0]}
