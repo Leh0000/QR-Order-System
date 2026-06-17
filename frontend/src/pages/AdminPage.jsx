@@ -1,42 +1,16 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download, RefreshCw, QrCode, Trash2 } from 'lucide-react';
+import { Download, RefreshCw, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { jsPDF } from 'jspdf';
 import { useOrders } from '../hooks/useOrders';
+import { useProducts } from '../hooks/useProducts';
+import { STATS_PERIODS, filterOrdersByPeriod } from '../utils/periodUtils';
+import AdminTabBar from '../components/AdminTabBar';
+import AnalyticsTab from '../components/AnalyticsTab';
 
 const ORDER_STATUSES = ['received', 'preparing', 'ready', 'completed', 'cancelled'];
-
-const STATS_PERIODS = [
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'This week' },
-  { key: 'month', label: 'This month' },
-  { key: 'all', label: 'All time' },
-];
-
-function getPeriodStart(period) {
-  const now = new Date();
-  if (period === 'today') {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }
-  if (period === 'week') {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const day = start.getDay();
-    const daysFromMonday = day === 0 ? 6 : day - 1;
-    start.setDate(start.getDate() - daysFromMonday);
-    return start;
-  }
-  if (period === 'month') {
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-  return null;
-}
-
-function filterOrdersByPeriod(orders, period) {
-  const start = getPeriodStart(period);
-  if (!start) return orders;
-  return orders.filter((o) => new Date(o.created_at) >= start);
-}
+const VALID_TABS = new Set(['orders', 'analytics', 'qr']);
 
 const PAYMENT_COLORS = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -196,11 +170,13 @@ function downloadAll(count) {
 export default function AdminPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders();
+  const { products } = useProducts();
   const [updating, setUpdating] = useState({});
   const [deleting, setDeleting] = useState({});
   const [statusFilter, setStatusFilter] = useState('all');
   const [tableCount, setTableCount] = useState(10);
-  const qrOpen = searchParams.get('tab') === 'qr';
+  const tabParam = searchParams.get('tab');
+  const activeTab = VALID_TABS.has(tabParam) ? tabParam : 'orders';
   const baseUrl = `${window.location.origin}/order`;
   const tables = Array.from({ length: tableCount }, (_, i) => i + 1);
 
@@ -254,12 +230,12 @@ export default function AdminPage() {
     });
   }
 
-  function toggleQrPanel() {
+  function setActiveTab(tab) {
     const next = new URLSearchParams(searchParams);
-    if (qrOpen) {
+    if (tab === 'orders') {
       next.delete('tab');
     } else {
-      next.set('tab', 'qr');
+      next.set('tab', tab);
     }
     setSearchParams(next, { replace: true });
   }
@@ -273,29 +249,25 @@ export default function AdminPage() {
             <h1 className="font-serif font-semibold text-2xl text-ink">Admin Dashboard</h1>
             <p className="text-sm text-ink-soft mt-0.5">Q Sina Order Management</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={refetch}
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium border border-line bg-white text-ink hover:bg-bg-soft transition-colors"
-            >
-              <RefreshCw size={15} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={toggleQrPanel}
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold bg-accent text-white"
-            >
-              <QrCode size={15} />
-              {qrOpen ? 'Hide QR Codes' : 'QR Codes'}
-            </button>
-          </div>
+          <button
+            onClick={refetch}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium border border-line bg-white text-ink hover:bg-bg-soft transition-colors"
+          >
+            <RefreshCw size={15} />
+            Refresh
+          </button>
         </div>
 
-        {/* Stats */}
-        {!loading && !error && <StatsBar orders={orders} />}
+        <AdminTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {qrOpen && (
+        {/* Stats */}
+        {!loading && !error && activeTab === 'orders' && <StatsBar orders={orders} />}
+
+        {activeTab === 'analytics' && !loading && !error && (
+          <AnalyticsTab orders={orders} products={products} />
+        )}
+
+        {activeTab === 'qr' && (
           <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-line">
             <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
               <div>
@@ -379,7 +351,7 @@ export default function AdminPage() {
         {error && <div className="text-center py-12 text-red-400">{error}</div>}
 
         {/* Orders board */}
-        {!loading && !error && (
+        {!loading && !error && activeTab === 'orders' && (
           <div className="bg-white rounded-2xl border border-line overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-line">
               <h2 className="font-semibold text-ink">Orders Board</h2>
