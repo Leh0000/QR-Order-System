@@ -123,8 +123,7 @@ export default function OrderPage() {
     );
   }
 
-  const allProducts = products;
-  function findProduct(id) { return allProducts.find((p) => String(p.id) === String(id)); }
+  function findProduct(id) { return products.find((p) => String(p.id) === String(id)); }
 
   const subtotal = Object.entries(cart).reduce((sum, [id, qty]) => {
     const p = findProduct(id);
