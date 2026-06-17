@@ -58,6 +58,9 @@ export default function AdminPage() {
   const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders(15000);
   const [updating, setUpdating] = useState({});
   const [deleting, setDeleting] = useState({});
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const activeStatuses = ['received', 'preparing'];
 
   async function handleOrderStatusChange(orderId, value) {
     setUpdating((prev) => ({ ...prev, [`${orderId}-order_status`]: true }));
@@ -93,6 +96,20 @@ export default function AdminPage() {
     });
   }
 
+  const filterOptions = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active' },
+    { key: 'ready', label: 'Ready' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const filteredOrders = orders.filter((order) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'active') return activeStatuses.includes(order.order_status);
+    return order.order_status === statusFilter;
+  });
+
   return (
     <div className="min-h-screen bg-bg-soft">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -127,86 +144,108 @@ export default function AdminPage() {
         {loading && <div className="text-center py-12 text-ink-soft">Loading orders…</div>}
         {error && <div className="text-center py-12 text-red-400">{error}</div>}
 
-        {/* Orders table */}
+        {/* Orders board */}
         {!loading && !error && (
           <div className="bg-white rounded-2xl border border-line overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-line">
-              <h2 className="font-semibold text-ink">All Orders</h2>
+              <h2 className="font-semibold text-ink">Orders Board</h2>
               <p className="text-xs text-ink-soft mt-0.5">Auto-refreshes every 15 seconds</p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {filterOptions.map((filter) => (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.key)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                      statusFilter === filter.key
+                        ? 'bg-accent text-white border-accent'
+                        : 'bg-white text-ink-soft border-line hover:bg-bg-soft'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {orders.length === 0 ? (
               <div className="py-16 text-center text-ink-soft text-sm">No orders yet.</div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="py-16 text-center text-ink-soft text-sm">No orders for this filter.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-bg-soft border-b border-line text-xs text-ink-soft uppercase tracking-wide">
-                      <th className="px-4 py-3 text-left">Order</th>
-                      <th className="px-4 py-3 text-left">Table</th>
-                      <th className="px-4 py-3 text-left">Items</th>
-                      <th className="px-4 py-3 text-right">Subtotal</th>
-                      <th className="px-4 py-3 text-right">Tax</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                      <th className="px-4 py-3 text-left">Payment</th>
-                      <th className="px-4 py-3 text-left">Status</th>
-                      <th className="px-4 py-3 text-left">Time</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-bg-soft/60 transition-colors">
-                        <td className="px-4 py-3 font-semibold text-ink">#{order.order_number}</td>
-                        <td className="px-4 py-3 text-ink">Table {order.table_number}</td>
-                        <td className="px-4 py-3 text-ink-soft max-w-[200px]">
-                          <details className="cursor-pointer">
-                            <summary className="text-xs font-medium text-accent outline-none">
-                              {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
-                            </summary>
-                            <ul className="mt-1 space-y-0.5">
-                              {(order.items || []).map((item) => (
-                                <li key={item.id} className="text-xs text-ink-soft">
-                                  {item.quantity}× {item.product_name} — ₱{parseFloat(item.line_total).toFixed(0)}
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        </td>
-                        <td className="px-4 py-3 text-right text-ink">₱{parseFloat(order.subtotal).toFixed(0)}</td>
-                        <td className="px-4 py-3 text-right text-ink-soft">₱{parseFloat(order.tax).toFixed(0)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-accent">₱{parseFloat(order.total).toFixed(0)}</td>
-                        <td className="px-4 py-3">
-                          <StatusBadge value={order.payment_status} colorMap={PAYMENT_COLORS} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <select
-                            value={order.order_status}
-                            disabled={updating[`${order.id}-order_status`]}
-                            onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
-                            className={`rounded-lg px-2 py-1 text-xs font-semibold border-0 outline-none cursor-pointer ${ORDER_COLORS[order.order_status] || 'bg-gray-100 text-gray-500'}`}
-                          >
-                            {ORDER_STATUSES.map((s) => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-ink-soft whitespace-nowrap">{formatTime(order.created_at)}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(order)}
-                            disabled={deleting[order.id]}
-                            title="Delete order"
-                            className="inline-flex items-center justify-center rounded-lg p-2 text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="p-4 sm:p-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredOrders.map((order) => (
+                    <article key={order.id} className="rounded-xl border border-line bg-bg-soft p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-base font-semibold text-ink">#{order.order_number}</p>
+                          <p className="text-xs text-ink-soft mt-0.5">Table {order.table_number} - {formatTime(order.created_at)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(order)}
+                          disabled={deleting[order.id]}
+                          title="Delete order"
+                          className="inline-flex items-center justify-center rounded-lg p-2 text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <StatusBadge value={order.payment_status} colorMap={PAYMENT_COLORS} />
+                        <select
+                          value={order.order_status}
+                          disabled={updating[`${order.id}-order_status`]}
+                          onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
+                          className={`rounded-lg px-2 py-1 text-xs font-semibold border-0 outline-none cursor-pointer ${ORDER_COLORS[order.order_status] || 'bg-gray-100 text-gray-500'}`}
+                        >
+                          {ORDER_STATUSES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="mt-4 rounded-lg bg-white border border-line p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft mb-2">Items</p>
+                        <ul className="space-y-1.5">
+                          {(order.items || []).map((item) => (
+                            <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                              <span className="text-ink">
+                                {item.quantity}x {item.product_name}
+                              </span>
+                              <span className="text-ink-soft whitespace-nowrap">₱{parseFloat(item.line_total).toFixed(0)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {order.notes?.trim() && (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Kitchen note</p>
+                          <p className="text-sm text-amber-900">{order.notes}</p>
+                        </div>
+                      )}
+
+                      <div className="mt-4 pt-3 border-t border-line space-y-1 text-sm">
+                        <div className="flex items-center justify-between text-ink-soft">
+                          <span>Subtotal</span>
+                          <span>₱{parseFloat(order.subtotal).toFixed(0)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-ink-soft">
+                          <span>Tax</span>
+                          <span>₱{parseFloat(order.tax).toFixed(0)}</span>
+                        </div>
+                        <div className="flex items-center justify-between font-semibold text-accent">
+                          <span>Total</span>
+                          <span>₱{parseFloat(order.total).toFixed(0)}</span>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
             )}
           </div>
