@@ -147,10 +147,27 @@ export default function AdminPage() {
   const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders(15000);
   const [updating, setUpdating] = useState({});
   const [deleting, setDeleting] = useState({});
+  const [statusFilter, setStatusFilter] = useState('all');
   const [tableCount, setTableCount] = useState(10);
   const qrOpen = searchParams.get('tab') === 'qr';
   const baseUrl = `${window.location.origin}/order`;
   const tables = Array.from({ length: tableCount }, (_, i) => i + 1);
+
+  const activeStatuses = ['received', 'preparing'];
+
+  const filterOptions = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active' },
+    { key: 'ready', label: 'Ready' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const filteredOrders = orders.filter((order) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'active') return activeStatuses.includes(order.order_status);
+    return order.order_status === statusFilter;
+  });
 
   async function handleOrderStatusChange(orderId, value) {
     setUpdating((prev) => ({ ...prev, [`${orderId}-order_status`]: true }));
