@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MapPin, ArrowLeft, Plus, Minus, ShoppingBag, Check, Smartphone, CreditCard } from 'lucide-react';
+import { MapPin, ArrowLeft, Plus, Minus, ShoppingBag, Check, Smartphone, CreditCard, Clock, ClipboardList } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
 import { useProducts } from '../hooks/useProducts';
+import { useTableOrders } from '../hooks/useTableOrders';
 import MenuHeader from '../components/MenuHeader';
 import CategoryTabs from '../components/CategoryTabs';
 import MenuItemRow from '../components/MenuItemRow';
@@ -12,17 +13,103 @@ import FloatingCartButton from '../components/FloatingCartButton';
 import PaymentSimulator from '../components/PaymentSimulator';
 
 const TAX_RATE = 0.12;
+const STATUS_STEPS = ['Order received', 'Preparing', 'Ready to serve'];
+
+const STATUS_LABELS = {
+  received: 'Order received',
+  preparing: 'Preparing',
+  ready: 'Ready to serve',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+const STATUS_COLORS = {
+  received: 'bg-blue-100 text-blue-700',
+  preparing: 'bg-orange-100 text-orange-700',
+  ready: 'bg-emerald-100 text-emerald-700',
+  completed: 'bg-gray-100 text-gray-600',
+  cancelled: 'bg-red-100 text-red-500',
+};
+
+function statusStepIndex(orderStatus) {
+  if (orderStatus === 'received') return 0;
+  if (orderStatus === 'preparing') return 1;
+  if (orderStatus === 'ready' || orderStatus === 'completed') return 2;
+  return -1;
+}
+
+function formatOrderTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function OrderStatusProgress({ orderStatus }) {
+  const activeStep = statusStepIndex(orderStatus);
+  const isCancelled = orderStatus === 'cancelled';
+  const isCompleted = orderStatus === 'completed';
+
+  if (isCancelled) {
+    return <p className="text-sm font-medium text-red-500">This order was cancelled.</p>;
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center">
+        {STATUS_STEPS.map((step, i) => (
+          <div key={step} className="contents">
+            <div className="flex flex-col items-center" style={{ flex: i === 1 ? 'none' : 1 }}>
+              <div
+                className={`flex items-center justify-center rounded-full text-xs font-semibold w-6 h-6 ${
+                  isCompleted || i <= activeStep ? 'bg-accent text-white' : 'bg-bg-soft text-ink-soft'
+                }`}
+              >
+                {isCompleted || i < activeStep ? <Check size={12} /> : i + 1}
+              </div>
+              <span
+                className={`text-[10px] mt-1.5 text-center max-w-[70px] ${
+                  isCompleted || i <= activeStep ? 'text-ink' : 'text-ink-soft'
+                }`}
+              >
+                {step}
+              </span>
+            </div>
+            {i < STATUS_STEPS.length - 1 && (
+              <div className={`flex-1 h-px mb-[18px] ${isCompleted || i < activeStep ? 'bg-accent' : 'bg-line'}`} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OrderStatusBadge({ status }) {
+  return (
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-500'}`}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
 
 export default function OrderPage() {
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
   const { products, categories, loading, error } = useProducts();
+  const { orders: tableOrders, loading: ordersLoading, refetch: refetchTableOrders } = useTableOrders(tableNumber);
   const { cart, cartCount, notes, setNotes, paymentMethod, setPaymentMethod, updateQty, clearCart } = useCart();
-  const [screen, setScreen] = useState('menu'); // menu | cart | checkout | confirmation
+  const [screen, setScreen] = useState('menu'); // menu | cart | checkout | confirmation | my-orders
   const [activeItem, setActiveItem] = useState(null);
   const [activeCategory, setActiveCategory] = useState('');
-  const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const [confirmedOrderId, setConfirmedOrderId] = useState(null);
+  const [placedOrderSnapshot, setPlacedOrderSnapshot] = useState(null);
   const sectionRefs = useRef({});
+
+  const activeOrderCount = tableOrders.filter(
+    (o) => o.order_status !== 'completed' && o.order_status !== 'cancelled'
+  ).length;
+
+  const confirmedOrder = confirmedOrderId
+    ? tableOrders.find((o) => o.id === confirmedOrderId) ?? placedOrderSnapshot
+    : null;
 
   if (!tableNumber || isNaN(parseInt(tableNumber))) {
     return (
@@ -68,7 +155,9 @@ export default function OrderPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Order failed');
-      setConfirmedOrder(body.data);
+      setConfirmedOrderId(body.data.id);
+      setPlacedOrderSnapshot(body.data);
+      refetchTableOrders();
       setScreen('confirmation');
       clearCart();
     } catch (e) {
@@ -80,7 +169,11 @@ export default function OrderPage() {
   // ---- MENU SCREEN ----
   const renderMenu = () => (
     <>
-      <MenuHeader tableNumber={tableNumber} />
+      <MenuHeader
+        tableNumber={tableNumber}
+        onMyOrders={() => setScreen('my-orders')}
+        activeOrderCount={activeOrderCount}
+      />
       {loading && (
         <div className="flex-1 flex items-center justify-center text-ink-soft text-sm">Loading menu…</div>
       )}
@@ -259,8 +352,69 @@ export default function OrderPage() {
     </>
   );
 
+  // ---- MY ORDERS SCREEN ----
+  const renderMyOrders = () => (
+    <>
+      <div className="px-5 pt-5 pb-3 flex items-center gap-3 flex-shrink-0 border-b border-line">
+        <button onClick={() => setScreen('menu')} className="text-ink"><ArrowLeft size={20} /></button>
+        <h1 className="font-serif font-semibold text-xl text-ink">My orders</h1>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        {ordersLoading && (
+          <p className="text-sm text-center text-ink-soft py-8">Loading your orders…</p>
+        )}
+        {!ordersLoading && tableOrders.length === 0 && (
+          <div className="flex flex-col items-center justify-center text-center py-12 px-4">
+            <div className="flex items-center justify-center rounded-full mb-4 w-16 h-16 bg-bg-soft">
+              <ClipboardList size={28} className="text-ink-soft" />
+            </div>
+            <h3 className="font-semibold mb-1 text-ink">No orders yet</h3>
+            <p className="text-sm mb-5 text-ink-soft">Place an order from the menu and track its status here.</p>
+            <button onClick={() => setScreen('menu')} className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-accent text-white">
+              Browse menu
+            </button>
+          </div>
+        )}
+        {!ordersLoading && tableOrders.map((order) => (
+          <div key={order.id} className="rounded-2xl p-4 mb-3 border border-line bg-bg">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div>
+                <p className="text-sm font-semibold text-ink">Order #{order.order_number}</p>
+                <p className="text-xs text-ink-soft flex items-center gap-1 mt-0.5">
+                  <Clock size={11} />
+                  {formatOrderTime(order.created_at)}
+                </p>
+              </div>
+              <OrderStatusBadge status={order.order_status} />
+            </div>
+
+            <div className="mb-3">
+              {order.items?.map((item) => (
+                <p key={item.id} className="text-xs text-ink-soft">
+                  {item.quantity} × {item.product_name}
+                </p>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-ink-soft">Total</span>
+              <span className="text-sm font-semibold text-accent">₱{parseFloat(order.total).toFixed(0)}</span>
+            </div>
+
+            {order.order_status !== 'completed' && order.order_status !== 'cancelled' && (
+              <OrderStatusProgress orderStatus={order.order_status} />
+            )}
+            {order.order_status === 'completed' && (
+              <p className="text-xs text-ink-soft">Your order has been served. Enjoy!</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   // ---- CONFIRMATION SCREEN ----
-  const steps = ['Order received', 'Preparing', 'Ready to serve'];
   const renderConfirmation = () => (
     <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
       <div className="flex items-center justify-center rounded-full mb-4 w-16 h-16 bg-accent-soft">
@@ -268,36 +422,37 @@ export default function OrderPage() {
       </div>
       <h2 className="font-serif font-semibold text-[22px] text-ink">Order placed!</h2>
       <p className="text-sm mt-1 mb-6 text-ink-soft">
-        Order #{confirmedOrder?.order_number} has been sent to the kitchen for Table {tableNumber}.
+        Order #{confirmedOrder?.order_number ?? '…'} has been sent to the kitchen for Table {tableNumber}.
       </p>
 
       <div className="w-full mb-6">
-        <div className="flex items-center">
-          {steps.map((step, i) => (
-            <div key={step} className="contents">
-              <div className="flex flex-col items-center" style={{ flex: i === 1 ? 'none' : 1 }}>
-                <div
-                  className={`flex items-center justify-center rounded-full text-xs font-semibold w-6 h-6 ${
-                    i === 0 ? 'bg-accent text-white' : 'bg-bg-soft text-ink-soft'
-                  }`}
-                >
-                  {i + 1}
-                </div>
-                <span className={`text-[10px] mt-1.5 text-center max-w-[70px] ${i === 0 ? 'text-ink' : 'text-ink-soft'}`}>{step}</span>
-              </div>
-              {i < steps.length - 1 && <div className="flex-1 h-px bg-line mb-[18px]" />}
-            </div>
-          ))}
-        </div>
+        <OrderStatusProgress orderStatus={confirmedOrder?.order_status ?? 'received'} />
       </div>
 
-      <p className="text-xs mb-6 text-ink-soft">Estimated ready time: 15–20 minutes</p>
-      <button
-        onClick={() => { setScreen('menu'); setConfirmedOrder(null); }}
-        className="rounded-xl px-6 py-3 text-sm font-semibold bg-accent text-white"
-      >
-        Back to menu
-      </button>
+      {confirmedOrder?.order_status === 'ready' && (
+        <p className="text-sm font-medium mb-4 text-emerald-600">Your order is ready — it's on its way!</p>
+      )}
+      {confirmedOrder?.order_status === 'completed' && (
+        <p className="text-sm font-medium mb-4 text-ink">Your order has been served. Enjoy!</p>
+      )}
+      {(!confirmedOrder || (confirmedOrder.order_status !== 'ready' && confirmedOrder.order_status !== 'completed')) && (
+        <p className="text-xs mb-6 text-ink-soft">Estimated ready time: 15–20 minutes</p>
+      )}
+
+      <div className="flex flex-col gap-2 w-full max-w-[240px]">
+        <button
+          onClick={() => setScreen('my-orders')}
+          className="rounded-xl px-6 py-3 text-sm font-semibold bg-bg-soft text-ink border border-line"
+        >
+          View my orders
+        </button>
+        <button
+          onClick={() => { setScreen('menu'); setConfirmedOrderId(null); setPlacedOrderSnapshot(null); }}
+          className="rounded-xl px-6 py-3 text-sm font-semibold bg-accent text-white"
+        >
+          Back to menu
+        </button>
+      </div>
     </div>
   );
 
@@ -308,6 +463,7 @@ export default function OrderPage() {
         {screen === 'cart' && renderCart()}
         {screen === 'checkout' && renderCheckout()}
         {screen === 'confirmation' && renderConfirmation()}
+        {screen === 'my-orders' && renderMyOrders()}
       </div>
     </div>
   );
