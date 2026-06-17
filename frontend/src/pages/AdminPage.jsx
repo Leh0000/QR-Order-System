@@ -144,7 +144,7 @@ function downloadAll(count) {
 
 export default function AdminPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders(15000);
+  const { orders, loading, error, refetch, updateOrder, deleteOrder } = useOrders();
   const [updating, setUpdating] = useState({});
   const [deleting, setDeleting] = useState({});
   const [statusFilter, setStatusFilter] = useState('all');
@@ -332,7 +332,7 @@ export default function AdminPage() {
           <div className="bg-white rounded-2xl border border-line overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-line">
               <h2 className="font-semibold text-ink">Orders Board</h2>
-              <p className="text-xs text-ink-soft mt-0.5">Auto-refreshes every 15 seconds</p>
+              <p className="text-xs text-ink-soft mt-0.5">Updates live when orders change</p>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {filterOptions.map((filter) => (
