@@ -69,14 +69,6 @@ Get-Content backend\db\schema.sql | mysql -u root -p
 
 **Alternative:** open `backend/db/schema.sql` in MySQL Workbench (or another client) and execute the script.
 
-If you are upgrading an older database that predates kitchen notes, run:
-
-```bash
-npm run migrate --prefix backend
-```
-
-Fresh installs from `schema.sql` do not need this step.
-
 ### 4. Configure environment variables
 
 Copy the example env file and edit it with your MySQL credentials:
