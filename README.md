@@ -1,6 +1,6 @@
 # QR Order System — Olive & Oak
 
-A mini restaurant QR ordering system for **Olive & Oak**. Customers scan a table QR code to browse the menu, build a cart, and pay via a simulated checkout. Staff track and fulfill orders from the admin dashboard.
+A mini restaurant QR ordering system for **Olive & Oak**. Customers scan a table QR code to browse the menu (with live bestseller highlights), build a cart, and pay via a simulated checkout. They can track order status in real time from **My orders**. Staff monitor, fulfill, and generate table QR codes from a single admin dashboard with live updates.
 
 ## Stack
 
@@ -160,15 +160,15 @@ npm run dev:frontend   # UI only (requires backend for menu/orders)
    Expected: `{"status":"ok"}`
 
 2. **Menu data** — open http://localhost:4000/api/products  
-   Expected: JSON with 13 menu items.
+   Expected: JSON with 13 menu items, each including `units_sold` (0 on a fresh seed).
 
 3. **Frontend** — open http://localhost:5173  
-   You should land on the QR generator page.
+   You should land on the admin dashboard.
 
 4. **Test an order**
    - Open http://localhost:5173/order?table=1
    - Add items to the cart, proceed through checkout, and complete the simulated payment
-   - Open http://localhost:5173/admin and confirm the order appears
+   - Open **My orders** on the menu screen (or return to `/admin`) and confirm the order appears with live status updates
 
 ### Production build (optional)
 
@@ -197,74 +197,84 @@ npm run start --prefix backend
 | `Port 5173 already in use` | Another Vite app running | Stop the other process or change the port in `frontend/vite.config.js` |
 | `mysql` command not found | MySQL CLI not in PATH | Use MySQL Workbench, or add MySQL `bin` to your system PATH |
 | Seed fails with access denied | Wrong `DB_USER` / `DB_PASS` | Update `backend/.env` and retry |
+| `Too many orders` (HTTP 429) | Table hit the order rate limit | Wait 5 minutes or use a different table number |
 
 ## Application Flow
 
 ### Restaurant deployment
 
-1. Open **`/qr-generator`** (the app root `/` redirects here).
-2. Set the number of tables and download QR codes (individual or bulk).
+1. Open **`/admin`** (the app root `/` redirects here).
+2. Click **QR Codes** to set the number of tables and download codes (individual PNG or bulk PDF).
 3. Each QR encodes `{origin}/order?table=N` — print and place on tables.
-4. Open **`/admin`** to monitor incoming orders.
+4. Use the same dashboard to monitor incoming orders and advance their status.
 
 ### Customer flow
 
 ```
-Scan QR → Menu → Cart → Checkout → Payment → Confirmation
+Scan QR → Menu → Cart → Checkout → Payment → Confirmation → My orders
 ```
 
 | Step | Screen | What happens |
 |------|--------|--------------|
-| 1 | **Menu** | Customer lands on `/order?table=N`. Menu loads from the API, grouped by category. Tap an item to open its detail modal and add to cart. |
+| 1 | **Menu** | Customer lands on `/order?table=N`. Menu loads from the API, grouped by category. A **Best sellers** row highlights the top three items by units sold (once orders exist). Tap an item to open its detail modal and add to cart. |
 | 2 | **Cart** | Review line items, adjust quantities, add an optional kitchen note, and see subtotal + 12% tax. |
 | 3 | **Checkout** | Confirm table number, choose **GCash** or **Card**, and review the order summary. |
 | 4 | **Payment** | Tap **Confirm & Pay** to run the payment simulator (~90% success). On success, the order is posted to the API. |
-| 5 | **Confirmation** | Shows order number and a progress indicator. Customer can return to the menu to order again. |
+| 5 | **Confirmation** | Shows order number and a live progress indicator. Customer can open **My orders** or return to the menu to order again. |
+| 6 | **My orders** | Lists all orders for the current table with line items, totals, and status badges. Active orders show a step progress bar that updates in real time as staff advance the order. |
 
-Orders are created with `payment_status: paid` and `order_status: received`. Visiting `/order` without a valid `?table=` query shows an invalid-table message.
+Orders are created with `payment_status: paid` and `order_status: received`. Visiting `/order` without a valid `?table=` query shows an invalid-table message. Order placement is rate-limited to 5 orders per table every 5 minutes.
 
 ### Staff flow (admin)
 
-1. Open **`/admin`** — the dashboard auto-refreshes every 15 seconds.
-2. Review stats: today's orders, active orders, completed count, and paid revenue.
-3. Expand an order row to see line items.
-4. Advance **`order_status`** through the lifecycle:
+1. Open **`/admin`** — the dashboard receives live updates via Server-Sent Events (with a 90-second polling fallback).
+2. Review stats for **Today**, **This week**, **This month**, or **All time**: order count, active orders, completed count, and paid revenue.
+3. Filter the order list by status (All, Active, Ready, Completed, Cancelled).
+4. Expand an order row to see line items and kitchen notes.
+5. Advance **`order_status`** through the lifecycle:
 
    `received` → `preparing` → `ready` → `completed`
 
-   Orders can also be set to `cancelled`.
-5. Delete orders permanently when needed (with confirmation).
+   Orders can also be set to `cancelled`. Status changes push instantly to customer **My orders** screens.
+6. Delete orders permanently when needed (with confirmation).
+7. Open the **QR Codes** panel to generate and download table QR codes.
 
 Payment status is set at checkout and is read-only in the admin UI.
 
 ```mermaid
 flowchart LR
-  QR[Scan table QR] --> Menu[Browse menu]
+  QR[Scan table QR] --> Menu[Browse menu + bestsellers]
   Menu --> Cart[Review cart + notes]
   Cart --> Checkout[Choose payment]
   Checkout --> Pay[Simulated payment]
   Pay -->|success| API[POST /api/orders]
   API --> Confirm[Order confirmation]
-  API --> Admin[Admin dashboard]
+  API --> SSE[SSE orders_changed]
+  SSE --> MyOrders[Customer My orders]
+  SSE --> Admin[Admin dashboard]
   Admin --> Status[Update order status]
+  Status --> SSE
 ```
 
 ## Routes
 
 | URL | Description |
 |-----|-------------|
-| `/` | Redirects to `/qr-generator` |
+| `/` | Redirects to `/admin` |
 | `/order?table=N` | Customer ordering (mobile-style UI; requires valid table 1–99) |
-| `/admin` | Admin dashboard — view, update, and delete orders |
-| `/qr-generator` | Generate and download table QR codes |
+| `/admin` | Admin dashboard — orders, stats, status updates, and QR code generation |
+| `/admin?tab=qr` | Admin dashboard with the QR Codes panel open |
+| `/qr-generator` | Redirects to `/admin?tab=qr` (legacy alias) |
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/products` | List available menu items |
-| GET | `/api/orders` | List all orders with line items. Optional query: `?status=received` |
-| POST | `/api/orders` | Create order after payment. Body: `table_number`, `items[]`, optional `payment_method` (`gcash` \| `card`), optional `notes` |
+| GET | `/api/health` | Health check — returns `{ "status": "ok" }` |
+| GET | `/api/products` | List available menu items with `units_sold` (from non-cancelled orders) |
+| GET | `/api/orders` | List orders with line items. Optional query: `?status=received`, `?table_number=N` |
+| GET | `/api/orders/events` | SSE stream — emits `orders_changed` when orders are created, updated, or deleted |
+| POST | `/api/orders` | Create order after payment. Body: `table_number`, `items[]`, optional `payment_method` (`gcash` \| `card`), optional `notes`. Rate-limited to 5 requests per table per 5 minutes |
 | PATCH | `/api/orders/:id` | Update `order_status` only |
 | DELETE | `/api/orders/:id` | Permanently delete an order and its items |
 
