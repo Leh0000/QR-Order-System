@@ -1,5 +1,5 @@
 import { Trophy } from 'lucide-react';
-import CategoryIcon from './CategoryIcon';
+import ProductImage from './ProductImage';
 
 export default function BestsellerSection({ items, onOpen, collapsed = false }) {
   if (!items.length) return null;
@@ -25,18 +25,16 @@ export default function BestsellerSection({ items, onOpen, collapsed = false }) 
                 onClick={() => onOpen(item)}
                 className="flex-shrink-0 w-[min(72vw,220px)] md:w-auto snap-start text-left rounded-2xl p-4 border border-line bg-bg-soft transition-colors hover:border-gold/50"
               >
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="flex items-center justify-center rounded-full w-10 h-10 bg-accent-soft flex-shrink-0">
-                    <CategoryIcon category={item.category} size={18} className="text-accent" />
-                  </div>
+                <ProductImage item={item} size="hero" className="mb-3" />
+
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm text-ink line-clamp-1 flex-1">{item.name}</p>
                   {item.tag && (
                     <span className="text-[10px] uppercase font-semibold rounded-full px-2 py-0.5 flex-shrink-0 bg-gold-soft text-gold tracking-[0.06em]">
                       {item.tag}
                     </span>
                   )}
                 </div>
-
-                <p className="font-semibold text-sm text-ink line-clamp-1">{item.name}</p>
                 <p className="text-xs text-ink-soft mt-0.5 line-clamp-2 min-h-[2.5rem]">{item.description}</p>
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">

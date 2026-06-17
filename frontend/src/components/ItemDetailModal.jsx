@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
-import CategoryIcon from './CategoryIcon';
+import ProductImage from './ProductImage';
 import { useCart } from '../context/CartContext';
 
 export default function ItemDetailModal({ item, onClose }) {
@@ -24,11 +24,9 @@ export default function ItemDetailModal({ item, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="w-full rounded-t-3xl p-6 bg-bg animate-slide-up"
       >
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center justify-center rounded-full w-14 h-14 bg-accent-soft">
-            <CategoryIcon category={item.category} size={26} className="text-accent" />
-          </div>
-          <button onClick={onClose} className="text-ink-soft">
+        <div className="flex justify-between items-start mb-4 gap-3">
+          <ProductImage item={item} size="hero" className="flex-1" />
+          <button onClick={onClose} className="text-ink-soft flex-shrink-0">
             <X size={20} />
           </button>
         </div>
