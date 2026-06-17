@@ -5,7 +5,6 @@ import './index.css';
 
 import OrderPage from './pages/OrderPage';
 import AdminPage from './pages/AdminPage';
-import QRGeneratorPage from './pages/QRGeneratorPage';
 import { CartProvider } from './context/CartContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -13,10 +12,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <CartProvider>
         <Routes>
-          <Route path="/" element={<Navigate to="/qr-generator" replace />} />
+          <Route path="/" element={<Navigate to="/admin" replace />} />
           <Route path="/order" element={<OrderPage />} />
           <Route path="/admin" element={<AdminPage />} />
-          <Route path="/qr-generator" element={<QRGeneratorPage />} />
+          <Route path="/qr-generator" element={<Navigate to="/admin?tab=qr" replace />} />
         </Routes>
       </CartProvider>
     </BrowserRouter>
