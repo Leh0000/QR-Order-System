@@ -237,13 +237,9 @@ router.patch(
     const { id } = req.params;
     const { order_status } = req.body;
 
-    const fields = ['order_status = ?'];
-    const values = [order_status];
-    values.push(id);
-
     const [result] = await pool.execute(
-      `UPDATE orders SET ${fields.join(', ')} WHERE id = ?`,
-      values
+      'UPDATE orders SET order_status = ? WHERE id = ?',
+      [order_status, id]
     );
 
     if (result.affectedRows === 0) {

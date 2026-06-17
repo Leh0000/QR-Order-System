@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const CartContext = createContext(null);
 
@@ -10,21 +10,9 @@ export function CartProvider({ children }) {
   function updateQty(productId, qty) {
     setCart((prev) => {
       const next = { ...prev };
-      if (qty <= 0) delete next[productId];
-      else next[String(productId)] = qty;
-      return next;
-    });
-  }
-
-  function addItem(product) {
-    const id = String(product.id);
-    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
-  }
-
-  function removeItem(productId) {
-    setCart((prev) => {
-      const next = { ...prev };
-      delete next[String(productId)];
+      const key = String(productId);
+      if (qty <= 0) delete next[key];
+      else next[key] = qty;
       return next;
     });
   }
@@ -39,7 +27,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, addItem, removeItem, updateQty, clearCart, cartCount, notes, setNotes, paymentMethod, setPaymentMethod }}
+      value={{ cart, updateQty, clearCart, cartCount, notes, setNotes, paymentMethod, setPaymentMethod }}
     >
       {children}
     </CartContext.Provider>
