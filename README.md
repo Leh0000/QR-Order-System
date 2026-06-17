@@ -1,6 +1,6 @@
-# QR Order System — Olive & Oak
+# QR Order System — Q Sina
 
-A mini restaurant QR ordering system for **Olive & Oak**. Customers scan a table QR code to browse the menu (with live bestseller highlights), build a cart, and pay via a simulated checkout. They can track order status in real time from **My orders**. Staff monitor, fulfill, and generate table QR codes from a single admin dashboard with live updates.
+A mini restaurant QR ordering system for **Q Sina**. Customers scan a table QR code to browse the menu (with live bestseller highlights), build a cart, and pay via a simulated checkout. They can track order status in real time from **My orders**. Staff monitor, fulfill, and generate table QR codes from a single admin dashboard with live updates.
 
 ## Stack
 
@@ -117,7 +117,7 @@ FRONTEND_URL=http://localhost:5173
 
 ### 5. Seed sample menu data
 
-Populate the database with Olive & Oak menu items (13 products across Appetizers, Main Dish, Desserts, and Drinks):
+Populate the database with Q Sina menu items (13 products across Appetizers, Main Dish, Desserts, and Drinks):
 
 ```bash
 npm run seed

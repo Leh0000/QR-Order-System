@@ -271,7 +271,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-serif font-semibold text-2xl text-ink">Admin Dashboard</h1>
-            <p className="text-sm text-ink-soft mt-0.5">Olive &amp; Oak — Order Management</p>
+            <p className="text-sm text-ink-soft mt-0.5">Q Sina Order Management</p>
           </div>
           <div className="flex items-center gap-3">
             <button

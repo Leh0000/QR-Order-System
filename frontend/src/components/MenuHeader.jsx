@@ -9,7 +9,7 @@ export default function MenuHeader({ tableNumber, onMyOrders, activeOrderCount =
             Scan &amp; Order
           </p>
           <h1 className="font-serif font-semibold italic text-[26px] leading-tight text-ink">
-            Olive &amp; Oak
+            Q Sina
           </h1>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
