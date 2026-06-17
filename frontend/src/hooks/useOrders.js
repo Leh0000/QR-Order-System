@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export function useOrders(refreshInterval = 15000) {
+const FALLBACK_POLL_MS = 90000;
+
+export function useOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,9 +21,19 @@ export function useOrders(refreshInterval = 15000) {
 
   useEffect(() => {
     fetchOrders();
-    const id = setInterval(fetchOrders, refreshInterval);
-    return () => clearInterval(id);
-  }, [fetchOrders, refreshInterval]);
+
+    const es = new EventSource('/api/orders/events');
+    es.addEventListener('orders_changed', () => {
+      fetchOrders();
+    });
+
+    const fallbackId = setInterval(fetchOrders, FALLBACK_POLL_MS);
+
+    return () => {
+      es.close();
+      clearInterval(fallbackId);
+    };
+  }, [fetchOrders]);
 
   async function updateOrder(id, payload) {
     const res = await fetch(`/api/orders/${id}`, {
