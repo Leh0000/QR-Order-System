@@ -103,6 +103,8 @@ export default function OrderPage() {
   const [confirmedOrderId, setConfirmedOrderId] = useState(null);
   const [placedOrderSnapshot, setPlacedOrderSnapshot] = useState(null);
   const sectionRefs = useRef({});
+  const menuScrollRef = useRef(null);
+  const [bestsellersCollapsed, setBestsellersCollapsed] = useState(false);
 
   const activeOrderCount = tableOrders.filter(
     (o) => o.order_status !== 'completed' && o.order_status !== 'cancelled'
@@ -136,6 +138,17 @@ export default function OrderPage() {
   function scrollToCategory(name) {
     setActiveCategory(name);
     sectionRefs.current[name]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function handleMenuScroll() {
+    const el = menuScrollRef.current;
+    if (!el) return;
+    const { scrollTop } = el;
+    setBestsellersCollapsed((prev) => {
+      if (scrollTop > 48) return true;
+      if (scrollTop < 16) return false;
+      return prev;
+    });
   }
 
   async function handlePaymentSuccess() {
@@ -183,13 +196,18 @@ export default function OrderPage() {
       )}
       {!loading && !error && (
         <>
-          <BestsellerSection items={bestsellers} onOpen={setActiveItem} />
+          <BestsellerSection items={bestsellers} onOpen={setActiveItem} collapsed={bestsellersCollapsed} />
           <CategoryTabs
             categories={categories}
             activeCategory={activeCategory || categories[0]}
             onSelect={scrollToCategory}
           />
-          <div className="flex-1 overflow-y-auto px-5" style={{ paddingBottom: cartCount > 0 ? 96 : 24 }}>
+          <div
+            ref={menuScrollRef}
+            onScroll={handleMenuScroll}
+            className="flex-1 min-h-0 overflow-y-auto px-5"
+            style={{ paddingBottom: cartCount > 0 ? 96 : 24 }}
+          >
             {categories.map((cat) => (
               <div key={cat} ref={(el) => (sectionRefs.current[cat] = el)} className="pt-5">
                 <h2 className="font-serif font-semibold text-[18px] text-ink mb-1">{cat}</h2>
@@ -459,8 +477,8 @@ export default function OrderPage() {
   );
 
   return (
-    <div className="w-full min-h-screen bg-bg-soft md:p-4">
-      <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-bg md:mx-auto md:min-h-0 md:h-[calc(100vh-2rem)] md:max-h-[960px] md:max-w-5xl md:rounded-[28px] md:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.25)]">
+    <div className="w-full h-dvh overflow-hidden bg-bg-soft md:min-h-screen md:h-auto md:overflow-visible md:p-4">
+      <div className="relative flex h-full w-full flex-col overflow-hidden bg-bg md:mx-auto md:min-h-0 md:h-[calc(100vh-2rem)] md:max-h-[960px] md:max-w-5xl md:rounded-[28px] md:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.25)]">
         {screen === 'menu' && renderMenu()}
         {screen === 'cart' && renderCart()}
         {screen === 'checkout' && renderCheckout()}

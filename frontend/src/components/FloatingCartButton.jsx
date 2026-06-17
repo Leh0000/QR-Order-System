@@ -11,7 +11,7 @@ export default function FloatingCartButton({ products, onClick }) {
   if (cartCount === 0) return null;
 
   return (
-    <div className="absolute bottom-4 left-4 right-4">
+    <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 bg-gradient-to-t from-bg via-bg to-transparent md:bottom-4 md:left-4 md:right-4 md:px-0 md:pb-4 md:pt-0 md:bg-none">
       <button
         onClick={onClick}
         className="w-full flex items-center justify-between rounded-2xl px-5 py-3.5 shadow-lg bg-ink text-white"
