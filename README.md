@@ -211,6 +211,77 @@ npm run dev:frontend   # UI only (requires backend for menu/orders)
 5. **Analytics** — open http://localhost:5173/admin?tab=analytics  
    After placing a paid order, confirm KPIs and charts populate (top items, revenue over time, etc.).
 
+### 8. Test QR scanning with a phone
+
+Phones cannot open `localhost` on your computer. To scan table QR codes during development, use your machine's LAN IP and keep the phone on the **same Wi‑Fi network** as the dev server.
+
+#### Prepare the dev server for phone access
+
+1. **Find your computer's LAN IP address**
+
+   **Windows (PowerShell):**
+
+   ```powershell
+   ipconfig
+   ```
+
+   Look for **IPv4 Address** under your active Wi‑Fi adapter (e.g. `192.168.1.42`).
+
+   **macOS / Linux:**
+
+   ```bash
+   ipconfig getifaddr en0
+   ```
+
+   On Linux, `hostname -I` also works if you need the first address on the machine.
+
+2. **Allow CORS from that address** — edit `backend/.env` and set `FRONTEND_URL` to your LAN origin (replace the example IP):
+
+   ```env
+   FRONTEND_URL=http://192.168.1.42:5173
+   ```
+
+   Restart the backend if it is already running so the new origin is picked up.
+
+3. **Start (or restart) the dev servers** from the project root:
+
+   ```bash
+   npm run dev
+   ```
+
+   The Vite dev server is configured with `host: true`, so it listens on your network interface as well as `localhost`.
+
+4. **Open the admin dashboard using the LAN IP**, not `localhost`:
+
+   ```
+   http://192.168.1.42:5173/admin?tab=qr
+   ```
+
+   QR codes are generated from `window.location.origin`. If you open admin at `localhost`, the codes will point at `http://localhost:5173/...` and will not work on a phone.
+
+5. **Allow through the firewall** if the phone cannot connect — permit inbound TCP on port **5173** (and ensure Node.js is allowed on Windows Defender Firewall).
+
+#### Generate and print table QR codes
+
+1. In the admin dashboard, open the **QR Codes** tab (`/admin?tab=qr`).
+2. Set the number of tables and preview each code.
+3. Download individual PNGs or export all tables as a bulk PDF.
+4. Print and place a code on each table. Each code links to `{origin}/order?table=N` (e.g. `http://192.168.1.42:5173/order?table=3`).
+
+#### Scan and order on the phone
+
+1. Open the phone's **Camera** app (iPhone/Android) or any QR scanner app.
+2. Point the camera at the table QR code until a link notification appears.
+3. Tap the link — the browser opens the customer menu at `/order?table=N`.
+4. Confirm the header shows **Table N**, then browse the menu, add items, and complete checkout.
+5. Use **My orders** on the menu screen to track status in real time as staff update orders on the admin dashboard.
+
+If you open `/order` without a valid `?table=` parameter (or with a non-numeric value), the app shows an **Invalid Table** screen asking you to scan the table QR code.
+
+#### Production / restaurant Wi‑Fi
+
+In production, deploy the frontend and API behind your public domain (HTTPS recommended). Open `/admin?tab=qr` on that deployed URL before generating codes so each QR encodes the live site origin. Customers on the restaurant Wi‑Fi scan the printed codes the same way — camera → tap link → order.
+
 ### Production build (optional)
 
 Build the frontend for static hosting:
@@ -241,6 +312,9 @@ npm run start --prefix backend
 | Seed fails with access denied | Wrong `DB_USER` / `DB_PASS` | Update `backend/.env` and retry |
 | `Too many orders` (HTTP 429) | Table hit the order rate limit | Wait 5 minutes or use a different table number |
 | Analytics charts show "No paid orders" | No completed paid orders in the selected period | Place a test order through checkout, or switch to **All time** |
+| Phone QR opens but menu is empty / API blocked | CORS or wrong origin | Set `FRONTEND_URL` in `backend/.env` to `http://<your-LAN-IP>:5173` and restart the backend |
+| Phone cannot load the site after scanning | Different network, firewall, or QR points at `localhost` | Same Wi‑Fi as dev machine; open admin via LAN IP before generating QR codes; allow port 5173 through the firewall |
+| **Invalid Table** after scanning | QR missing or corrupt `?table=` | Regenerate the code from **QR Codes** tab; URL must be `/order?table=N` with N = 1–99 |
 
 ## Application Flow
 
@@ -248,7 +322,7 @@ npm run start --prefix backend
 
 1. Open **`/admin`** (the app root `/` redirects here).
 2. Use the **QR Codes** tab to set the number of tables and download codes (individual PNG or bulk PDF).
-3. Each QR encodes `{origin}/order?table=N` — print and place on tables.
+3. Each QR encodes `{origin}/order?table=N` — print and place on tables. Customers scan with their phone camera and tap the link to open the menu. For local development over Wi‑Fi, see [Test QR scanning with a phone](#8-test-qr-scanning-with-a-phone).
 4. Use the **Orders** tab to monitor incoming orders and advance their status.
 5. Use the **Analytics** tab to review sales trends, top dishes, and peak hours.
 
